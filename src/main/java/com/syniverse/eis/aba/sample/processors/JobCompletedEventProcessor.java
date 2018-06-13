@@ -9,6 +9,8 @@ import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
@@ -55,12 +57,15 @@ public class JobCompletedEventProcessor {
 			getFile(httpClient, jobCompletedEvent.getRetryFileUri(), "/aba-sample-output/" + execution.getId() + "/retry.txt");
 			getFile(httpClient, jobCompletedEvent.getErrorFileUri(), "/aba-sample-output/" + execution.getId() + "/error.txt");
 			
+			deleteFile(httpClient, jobCompletedEvent.getOutputFileUri());
+			deleteFile(httpClient, jobCompletedEvent.getRetryFileUri());
+			deleteFile(httpClient, jobCompletedEvent.getErrorFileUri());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 	
-	private void addHeaders(HttpGet request, String contentType) {
+	private void addHeaders(HttpRequestBase request, String contentType) {
 		String authHeader = ResourceBundle.getBundle("application").getString("user.sdc.bearer-token");
 		request.addHeader("Authorization", authHeader);
 		request.addHeader("int-companyid", String.valueOf(jobCompletedEvent.getCompanyId()));
@@ -78,5 +83,19 @@ public class JobCompletedEventProcessor {
 			EntityUtils.consume(fileEntity);
 			fileResponse.close();
 		}
+	}
+	
+	private void deleteFile(CloseableHttpClient httpClient, String fileUri) throws IOException {
+		if (!"EMPTY_FILE".equals(fileUri)) {
+			
+			int index = fileUri.lastIndexOf("/");
+			String deleteUri = fileUri.substring(0, index);
+			
+			HttpDelete deleteRequest = new HttpDelete(deleteUri);
+			addHeaders(deleteRequest, "application/octet-stream");
+			CloseableHttpResponse deleteResponse = httpClient.execute(deleteRequest);
+			deleteResponse.close();
+		}
+		
 	}
 }
